@@ -13,9 +13,10 @@ function ghost_menu() {
 	return $items;
 }
 
-function ghost_export_page($form) {
+function ghost_export_page() {
 	$types = array();
-	$content_types = node_type_get_types();
+	$content_types = node_get_types(); 
+	// node_type_get_types();
 	foreach($content_types as $type) {
 		$types[$type->type] = $type->name;
 	}
@@ -46,14 +47,17 @@ function ghost_export_page($form) {
 		'#type' => 'submit',
 		'#value' => t("Create file")
 	);
-
+        
 	return $form;
 }
 
 function ghost_export_page_submit(&$form, &$form_state) {
+	
 	$type = $form_state["values"]["type"];
 	$vid = $form_state["values"]["vid"];
 	$uid = 1;
+	
+	
 
 	$export = array(
 		'meta' => ghost_export_meta(),
@@ -65,10 +69,12 @@ function ghost_export_page_submit(&$form, &$form_state) {
 			"roles_users" => ghost_export_roles_users(),
 		)
 	);
+	
+	
 
 	$filedir = 'sites/default/files';
 	$filename = "export_" . time() . ".json";
-	$content = drupal_json_encode($export);
+	$content = json_encode($export);
 	$handle = fopen( $filedir . '/' . $filename, 'w' );
 	fwrite( $handle, $content );
 	fclose( $handle );
@@ -150,14 +156,22 @@ function ghost_export_user($uid) {
 function ghost_export_nodes($content_type) {
 	$exports = array();
 	// @todo remove this condition of 3
-	$nodes = node_load_multiple(array(), array("type" => check_plain($content_type)));
+	// $nodes = node_load_multiple(array(), array("type" => check_plain($content_type)));
+	$result = db_query("SELECT nid FROM {node} WHERE type = '%s' AND status=1 ", check_plain($content_type));
+
+        $nodes = array();
+        while ($obj = db_fetch_object ($result)) {
+          $nodes[] = node_load($obj->nid);
+        }
+        
 	foreach($nodes as $node) {
 		$item = array(
 			"id" => intval($node->nid),
 			"title" => substr($node->title, 0, 150),
 			"slug" => substr(strtolower(str_replace(" ", "-", $node->title)), 0, 150),
-			"markdown" => isset($node->body["und"][0]["value"]) ? $node->body["und"][0]["value"] : $node->title,
-			"html" => isset($node->body["und"][0]["safe_value"]) ? str_replace("[", "<", str_replace("]", ">", $node->body["und"][0]["safe_value"])) : $node->title,
+			"markdown" => isset($node->body) ? $node->body : $node->title,
+			"html" => isset($node->body) ? $node->body : $node->title,
+			// "html" => isset($node->body) ? str_replace("[", "<", str_replace("]", ">", $node->body)) : $node->title,
 			"image" => null,
 			"featured" => 0,
 			"page" => 0,
@@ -182,7 +196,13 @@ function ghost_export_nodes($content_type) {
 
 function ghost_export_post_tags($content_type) {
 	$exports = array();
-	$nodes = node_load_multiple(array(), array("type" => check_plain($content_type)));
+	// $nodes = node_load_multiple(array(), array("type" => check_plain($content_type)));
+	$result = db_query("SELECT nid FROM {node} WHERE type = '%s' AND status=1 ", check_plain($content_type));
+
+        $nodes = array();
+        while ($obj = db_fetch_object ($result)) {
+          $nodes[] = node_load($obj->nid);
+        }
 	foreach($nodes as $node) {
 		$tags = $node->field_tags["und"];
 		foreach($tags as $tag) {
